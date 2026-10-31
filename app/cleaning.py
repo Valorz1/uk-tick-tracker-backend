@@ -57,23 +57,16 @@ def normalise_location(text: str) -> str:
 def clean_record(raw: dict, now: datetime | None = None) -> dict:
     """Validate one raw sighting and return a tidied copy.
 
-    Checks run in order and stop at the first problem, so the error
-    message always names one specific reason.
-
     Args:
-        raw: One record exactly as received from the API.
-        now: The current time to compare dates against. Only tests pass
-            this, so the "future date" check gives the same result on any day.
+        raw: One record as received from the API.
+        now: Current time for the future-date check; tests pass a fixed value.
 
     Returns:
-        A new dict with the keys `id`, `date`, `location`, `species` and
-        `latin_name` (snake_case, to match the database columns). `date` is
-        always in the form "YYYY-MM-DDTHH:MM:SS"; `latin_name` may be None.
+        A new dict with `id`, `date`, `location`, `species` and `latin_name`
+        (which may be None), named to match the database columns.
 
     Raises:
-        InvalidRecordError: If the record is not a dict, a required field is
-            missing or blank, or the date is unparseable, has a timezone or is
-            in the future.
+        InvalidRecordError: With the first problem found.
     """
     if not isinstance(raw, dict):
         raise InvalidRecordError("record is not a JSON object")

@@ -13,14 +13,15 @@ and serves search, filtering and reporting endpoints. It is built with **FastAPI
 ## Contents
 
 1. [Quick start](#quick-start)
-2. [Endpoints](#endpoints)
-3. [Architecture](#architecture)
-4. [How the data is consumed and processed](#how-the-data-is-consumed-and-processed)
-5. [What I found in the data](#what-i-found-in-the-data)
-6. [Design choices and assumptions](#design-choices-and-assumptions)
-7. [Error handling](#error-handling)
-8. [Testing](#testing)
-9. [What I would do next](#what-i-would-do-next)
+2. [Screenshots](#screenshots)
+3. [Endpoints](#endpoints)
+4. [Architecture](#architecture)
+5. [How the data is consumed and processed](#how-the-data-is-consumed-and-processed)
+6. [What I found in the data](#what-i-found-in-the-data)
+7. [Design choices and assumptions](#design-choices-and-assumptions)
+8. [Error handling](#error-handling)
+9. [Testing](#testing)
+10. [What I would do next](#what-i-would-do-next)
 
 ---
 
@@ -64,6 +65,25 @@ Then open **http://127.0.0.1:8000/docs** to try every endpoint in the browser.
 ```bash
 python -m pytest -v
 ```
+
+---
+
+## Screenshots
+
+**Importing the data and running the tests:** 1,000 sightings fetched and stored, and all 56 tests passing.
+
+![Terminal showing the ingestion summary and 56 passing tests](docs/screenshots/terminal.png)
+
+The warning comes from the test client inside FastAPI, not from this project's code
+(see [What I would do next](#what-i-would-do-next)).
+
+**The interactive API documentation** at `/docs`, generated automatically by FastAPI:
+
+![The /docs page listing the three endpoints and response models](docs/screenshots/docs-page.png)
+
+**A search:** London sightings, 3 per page. `total` shows there are 76 in all.
+
+![Searching for London sightings in the /docs page, with the JSON response](docs/screenshots/search-result.png)
 
 ---
 
@@ -307,3 +327,8 @@ python -m pytest -v
 - **Run ingestion on a schedule** and record when the data was last refreshed.
 - **Move the test client to `httpx2`.** The installed Starlette version shows a deprecation warning recommending it.
 - **Give clearer rejection reasons,** e.g. "id is not text" rather than "missing id" for a numeric ID.
+- **Create the database schema once at start-up.** `connect()` currently runs
+  `CREATE TABLE IF NOT EXISTS` on every connection. This costs about 0.05 ms per request,
+  which is negligible here, and it guarantees the table always exists (so a fresh install
+  gets a clear 503 error rather than a crash). At larger scale, I'd move it to a one-off
+  `init_db()` step run at application start-up.

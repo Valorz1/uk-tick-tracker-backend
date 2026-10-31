@@ -35,22 +35,17 @@ def fetch_sightings(
 ) -> list:
     """Download the raw sightings list, retrying temporary failures.
 
-    Retries network errors, timeouts, invalid JSON, 429 and 5xx responses,
-    waiting twice as long after each failure (exponential backoff), which
-    gives a struggling server time to recover instead of overloading it.
-
     Args:
-        client: The HTTP client to use. Passed in (dependency injection)
-            so tests can supply a fake client instead of the real API.
-        attempts: The maximum number of requests to make.
-        wait_seconds: The first wait between attempts. Tests pass 0.
+        client: HTTP client, passed in so tests can supply a fake one.
+        attempts: Maximum number of requests.
+        wait_seconds: First wait between attempts; doubles each time.
 
     Returns:
-        The decoded JSON list of raw sighting records.
+        The decoded JSON list of raw records.
 
     Raises:
-        FetchError: If the response is a client error other than 429, is not
-            a JSON list, or every attempt fails.
+        FetchError: On a non-retryable error, a non-list response,
+            or when every attempt fails.
     """
     for attempt in range(1, attempts + 1):
         try:

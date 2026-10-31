@@ -25,10 +25,7 @@ app = FastAPI(
 def get_db():
     """Give each request its own database connection, and close it afterwards.
 
-    This is a FastAPI dependency. Code before `yield` runs before the
-    endpoint, and the `finally` block runs after the response, even if the
-    endpoint raised an error. Tests replace it with an in-memory database
-    using `app.dependency_overrides`.
+    Tests replace this with an in-memory database via `app.dependency_overrides`.
 
     Yields:
         An open SQLite connection.

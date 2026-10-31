@@ -45,17 +45,12 @@ def connect(path: str | Path = DB_PATH) -> sqlite3.Connection:
 def upsert_sightings(conn: sqlite3.Connection, records: list[dict]) -> None:
     """Save cleaned records, replacing any existing record with the same id.
 
-    "Upsert" means insert, or update if it already exists. Running ingestion
-    twice therefore never duplicates rows, and a corrected record from the
-    source replaces the old version.
+    Running ingestion twice therefore never duplicates rows, and a
+    corrected record from the source replaces the old version.
 
     Args:
         conn: An open database connection.
         records: Cleaned records, as returned by `clean_record`.
-
-    Side effects:
-        Writes to the database as a single transaction: if any record fails,
-        none are saved, so the table is never left half-updated.
     """
     with conn:  # commits on success, rolls back on any error
         conn.executemany(
