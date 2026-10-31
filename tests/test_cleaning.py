@@ -33,6 +33,12 @@ def test_valid_record_is_returned_tidied():
     }
 
 
+def test_city_with_apostrophe_and_extra_spaces_is_tidied():
+    raw = make_record(location="  king's   lynn ")
+
+    assert clean_record(raw, now=NOW)["location"] == "King's Lynn"
+
+
 def test_date_only_is_stored_in_full_format():
     assert clean_record(make_record(date="2022-08-01"), now=NOW)["date"] == "2022-08-01T00:00:00"
 

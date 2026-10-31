@@ -30,7 +30,12 @@ def fetch_sightings(
     for attempt in range(1, attempts + 1):
         try:
             response = client.get(API_URL, timeout=TIMEOUT_SECONDS)
-            response.raise_for_status()  # turns 4xx and 5xx responses into errors
+            # A 4xx error (e.g. 404 Not Found) means our request is wrong, so
+            # retrying will not help: stop now. 429 (Too Many Requests) is the
+            # exception, because waiting and trying again is the right response.
+            if 400 <= response.status_code < 500 and response.status_code != 429:
+                raise FetchError(f"API returned {response.status_code}; retrying will not help")
+            response.raise_for_status()  # turns 429 and 5xx responses into errors
             data = response.json()  # raises ValueError if the body is not valid JSON
         except (httpx.HTTPError, ValueError) as error:
             logger.warning("Attempt %d of %d failed: %s", attempt, attempts, error)

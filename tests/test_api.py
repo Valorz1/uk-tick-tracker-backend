@@ -58,6 +58,19 @@ def test_location_filter_ignores_case_and_spaces(client):
     assert ids(response) == ["b", "a"]
 
 
+def test_blank_location_means_no_filter(client):
+    response = client.get("/sightings", params={"location": "   "})
+
+    assert response.json()["total"] == 4
+
+
+def test_latest_possible_end_date_does_not_crash(client):
+    response = client.get("/sightings", params={"end": "9999-12-31"})
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 4
+
+
 def test_filters_can_be_combined(client):
     response = client.get(
         "/sightings", params={"start": "2022-01-15", "end": "2022-12-31", "location": "London"}

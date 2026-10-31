@@ -1,5 +1,9 @@
+"""SQL queries used by the API endpoints."""
+
 import sqlite3
 from datetime import date, timedelta
+
+from app.cleaning import normalise_location
 
 
 def search_sightings(
@@ -18,16 +22,19 @@ def search_sightings(
         conditions.append("date >= ?")
         params.append(start.isoformat())
 
-    if end:
+    # date.max (9999-12-31) has no "next day", and every stored date is
+    # before it anyway, so it needs no condition.
+    if end and end < date.max:
         # Dates are stored with a time, so "up to and including end" means
         # "before the start of the next day".
         conditions.append("date < ?")
         params.append((end + timedelta(days=1)).isoformat())
 
-    if location:
-        # Tidy the input the same way stored cities were tidied.
+    # A blank or spaces-only location means "no location filter".
+    if location and location.strip():
+        # Tidy the input with the same function used on stored cities.
         conditions.append("location = ?")
-        params.append(location.strip().title())
+        params.append(normalise_location(location))
 
     # Only our own fixed condition strings go into the SQL text.
     # Every value the user sends goes through a ? placeholder.

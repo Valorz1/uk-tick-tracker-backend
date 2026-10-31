@@ -61,11 +61,30 @@ def test_fetch_retries_after_invalid_json():
 
 
 def test_fetch_gives_up_after_every_attempt_fails():
-    client, calls = fake_client([httpx.Response(503)] * 3)
+    # A fresh response object for each attempt (not one object reused 3 times).
+    client, calls = fake_client([httpx.Response(503) for _ in range(3)])
 
     with pytest.raises(FetchError, match="after 3 attempts"):
         fetch_sightings(client, attempts=3, wait_seconds=0)
     assert len(calls) == 3
+
+
+def test_fetch_does_not_retry_a_client_error():
+    client, calls = fake_client([httpx.Response(404)])
+
+    with pytest.raises(FetchError, match="404"):
+        fetch_sightings(client, wait_seconds=0)
+    assert len(calls) == 1
+
+
+def test_fetch_retries_when_rate_limited():
+    client, calls = fake_client([
+        httpx.Response(429),
+        httpx.Response(200, json=[GOOD_RECORD]),
+    ])
+
+    assert fetch_sightings(client, wait_seconds=0) == [GOOD_RECORD]
+    assert len(calls) == 2
 
 
 def test_fetch_rejects_a_response_that_is_not_a_list():
@@ -105,8 +124,7 @@ def test_run_ingestion_stores_data_and_reports_a_summary(conn):
 
 
 def test_running_ingestion_twice_does_not_duplicate_rows(conn):
-    responses = [httpx.Response(200, json=[GOOD_RECORD])] * 2
-    client, _ = fake_client(responses)
+    client, _ = fake_client([httpx.Response(200, json=[GOOD_RECORD]) for _ in range(2)])
 
     run_ingestion(client, conn)
     summary = run_ingestion(client, conn)

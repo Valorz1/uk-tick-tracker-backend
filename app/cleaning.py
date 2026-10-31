@@ -1,5 +1,6 @@
 """Check and tidy raw tick-sighting records from the Elanco API."""
 
+import string
 from datetime import datetime
 
 REQUIRED_FIELDS = ("id", "date", "location", "species")
@@ -15,6 +16,15 @@ def _clean_text(value) -> str | None:
         return None
     value = value.strip()
     return value or None
+
+
+def normalise_location(text: str) -> str:
+    """Tidy a city name. Used when storing AND when searching, so they always match.
+
+    capwords also handles apostrophes and extra spaces: " king's  lynn " -> "King's Lynn"
+    (str.title() would give "King'S Lynn").
+    """
+    return string.capwords(text)
 
 
 def clean_record(raw: dict, now: datetime | None = None) -> dict:
@@ -45,7 +55,7 @@ def clean_record(raw: dict, now: datetime | None = None) -> dict:
     return {
         "id": _clean_text(raw["id"]),
         "date": date.isoformat(timespec="seconds"),
-        "location": _clean_text(raw["location"]).title(),
+        "location": normalise_location(raw["location"]),
         "species": _clean_text(raw["species"]),
         "latin_name": _clean_text(raw.get("latinName")),
     }
