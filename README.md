@@ -190,7 +190,7 @@ Weekly example:
 ]
 ```
 
-Reports run oldest first. Weeks or months with no sightings aren't included at the moment.
+Trend results run oldest first. Weeks or months with no sightings aren't included at the moment.
 
 ## How it works
 
@@ -263,7 +263,7 @@ The data looked clean when I tested it, but I still built validation for missing
 
 ## Errors and edge cases
 
-- **Fetching:** Requests time out after 10 seconds. Temporary network errors, HTTP 429, server errors and invalid JSON are retried up to three times with increasing delays. Other client errors, such as HTTP 404, stop immediately.
+- **Fetching:** Requests time out after 10 seconds. Temporary network errors, HTTP 429, server errors and invalid JSON are tried up to three times in total, with increasing delays between attempts. Other client errors, such as HTTP 404, stop immediately.
 - **Failed imports:** If fetching fails completely, the existing stored data is left unchanged.
 - **Validation:** Bad records are rejected with a logged reason; valid records continue through the import.
 - **Queries:** User-supplied values go through SQL placeholders rather than being inserted directly into the query string.
@@ -312,6 +312,8 @@ I focused on the core backend requirements first. With more time, I'd revisit a 
 - **Data refresh:** The importer updates and adds records but doesn't remove sightings that disappear from the source. A scheduled refresh would also save having to run it manually.
 - **Reporting:** I'd add filters for species, group cities into wider regions, and return zero counts for periods with no sightings.
 - **AI/ML extension:** It could be interesting to flag unusual increases in reported sightings. That would need more data and evaluation before treating the results as meaningful; it isn't part of this MVP.
+- **Test client warning:** The yellow warning in the test output comes from FastAPI's test client, not from this project. I'd move it to `httpx2`, which newer Starlette versions recommend.
+- **Database setup:** `connect()` creates the table if needed on every connection. That costs about 0.05 ms and guarantees a fresh install returns a clear `503`, but at larger scale I'd run it once at start-up.
 
 Tick-sighting counts are reports of activity in this dataset, **not** a direct measure of disease risk.
 
