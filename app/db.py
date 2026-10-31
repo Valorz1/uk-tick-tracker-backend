@@ -37,7 +37,7 @@ def connect(path: str | Path = DB_PATH) -> sqlite3.Connection:
     # FastAPI may use a connection on a different thread from the one that
     # opened it. Each request gets its own connection, so this is safe.
     conn = sqlite3.connect(path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row  # lets us read columns by name: row["date"]
+    conn.row_factory = sqlite3.Row  # lets us read columns by name: row ["date"]
     conn.executescript(SCHEMA)
     return conn
 
@@ -45,12 +45,17 @@ def connect(path: str | Path = DB_PATH) -> sqlite3.Connection:
 def upsert_sightings(conn: sqlite3.Connection, records: list[dict]) -> None:
     """Save cleaned records, replacing any existing record with the same id.
 
-    Running ingestion twice therefore never duplicates rows, and a
-    corrected record from the source replaces the old version.
+    "Upsert" means insert, or update if it already exists. Running ingestion
+    twice therefore never duplicates rows, and a corrected record from the
+    source replaces the old version.
 
     Args:
         conn: An open database connection.
         records: Cleaned records, as returned by `clean_record`.
+
+    Side effects:
+        Writes to the database as a single transaction: if any record fails,
+        none are saved, so the table is never left half-updated.
     """
     with conn:  # commits on success, rolls back on any error
         conn.executemany(
