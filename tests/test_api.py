@@ -106,3 +106,64 @@ def test_start_after_end_is_rejected(client):
 )
 def test_invalid_parameters_are_rejected(client, params):
     assert client.get("/sightings", params=params).status_code == 422
+
+
+# ---------- Reports ----------
+
+
+def test_regions_report_counts_each_city_highest_first(client):
+    response = client.get("/reports/regions")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"region": "London", "count": 2},
+        {"region": "Glasgow", "count": 1},  # ties are sorted alphabetically
+        {"region": "Manchester", "count": 1},
+    ]
+
+
+def test_monthly_trends_count_each_month_oldest_first(client):
+    response = client.get("/reports/trends", params={"period": "monthly"})
+
+    assert response.json() == [
+        {"period": "2022-01", "count": 2},
+        {"period": "2022-02", "count": 1},
+        {"period": "2023-06", "count": 1},
+    ]
+
+
+def test_monthly_is_the_default_period(client):
+    assert client.get("/reports/trends").json()[0]["period"] == "2022-01"
+
+
+def test_weekly_trends_are_labelled_by_the_monday_each_week_starts(client):
+    response = client.get("/reports/trends", params={"period": "weekly"})
+
+    # 2022-01-10 is a Monday. 2022-01-31 (Mon) and 2022-02-01 (Tue) fall in
+    # the same week, even though they are in different months.
+    assert response.json() == [
+        {"period": "2022-01-10", "count": 1},
+        {"period": "2022-01-31", "count": 2},
+        {"period": "2023-06-12", "count": 1},
+    ]
+
+
+def test_unknown_period_is_rejected(client):
+    assert client.get("/reports/trends", params={"period": "daily"}).status_code == 422
+
+
+# ---------- If no data loaded yet ----------
+
+
+@pytest.mark.parametrize("path", ["/sightings", "/reports/regions", "/reports/trends"])
+def test_empty_database_gives_a_clear_503_error(path):
+    empty = connect(":memory:")
+    app.dependency_overrides[get_db] = lambda: empty
+    try:
+        response = TestClient(app).get(path)
+    finally:
+        app.dependency_overrides.clear()
+        empty.close()
+
+    assert response.status_code == 503
+    assert "run 'python -m app.ingest' first" in response.json()["detail"]

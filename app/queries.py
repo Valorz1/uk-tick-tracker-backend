@@ -52,3 +52,36 @@ def search_sightings(
     ).fetchall()
 
     return total, [dict(row) for row in rows]
+
+
+def sightings_per_region(conn: sqlite3.Connection) -> list[dict]:
+    """Return the number of sightings in each region (city), highest first."""
+    rows = conn.execute(
+        "SELECT location AS region, COUNT(*) AS count FROM sightings"
+        " GROUP BY location ORDER BY count DESC, region"
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+# How each period is worked out from a stored date, in SQLite.
+# Weekly: 'weekday 0' moves forward to the next Sunday (or stays if already
+# Sunday), then '-6 days' goes back to that week's Monday. So every date in
+# a week gets the same label: the date the week starts.
+PERIOD_SQL = {
+    "monthly": "strftime('%Y-%m', date)",
+    "weekly": "date(date, 'weekday 0', '-6 days')",
+}
+
+
+def sightings_over_time(conn: sqlite3.Connection, period: str) -> list[dict]:
+    """Return the number of sightings per week or month, oldest first.
+
+    `period` must be "weekly" or "monthly". The endpoint checks this, and the
+    SQL text below only ever comes from PERIOD_SQL, never from the user.
+    """
+    period_sql = PERIOD_SQL[period]
+    rows = conn.execute(
+        f"SELECT {period_sql} AS period, COUNT(*) AS count FROM sightings"
+        " GROUP BY period ORDER BY period"
+    ).fetchall()
+    return [dict(row) for row in rows]
