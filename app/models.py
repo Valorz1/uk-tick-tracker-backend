@@ -19,11 +19,13 @@ class SearchResults(BaseModel):
     limit: int
     offset: int
     results: list[Sighting]
-    
+
+
 class RegionCount(BaseModel):
-    region:str
+    region: str
     count: int
-    
+
+
 class PeriodCount(BaseModel):
-    period: str #2024-01 for a monthly, or the Monday a week starts, 2024-01-01
+    period: str  # "2024-01" for monthly, or the Monday a week starts, "2024-01-01"
     count: int
