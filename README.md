@@ -1,4 +1,4 @@
-# 🕷️ UK Tick Tracker
+# UK Tick Tracker
 
 **Backend MVP · Elanco Placement Programme technical task (2026)**
 
