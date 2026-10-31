@@ -1,0 +1,30 @@
+{
+  "version": "0.2",
+  "words": [
+    "apronophorus",
+    "arboricola",
+    "canisuga",
+    "capitalisation",
+    "capitalised",
+    "docstrings",
+    "Elanco",
+    "executemany",
+    "executescript",
+    "fastapi",
+    "httpx",
+    "Ixodes",
+    "Nandha",
+    "normalise",
+    "parametrised",
+    "Parmbir",
+    "Pydantic",
+    "pytest",
+    "retryable",
+    "Starlette",
+    "Summarise",
+    "timespec",
+    "uvicorn",
+    "venv"
+  ],
+  "ignoreRegExpList": ["\\b[A-Za-z0-9]{20}\\b"]
+}
