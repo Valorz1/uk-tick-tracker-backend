@@ -6,6 +6,10 @@ from pathlib import Path
 # The database file sits in the project root, whichever folder you run from.
 DB_PATH = Path(__file__).resolve().parent.parent / "ticks.db"
 
+# `IF NOT EXISTS` makes this safe to run on every connection.
+# PRIMARY KEY on id is what prevents duplicate sightings, and NOT NULL is a
+# second safety net behind the cleaning code. The indexes speed up the
+# date and location filters used by search.
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sightings (
     id         TEXT PRIMARY KEY,
@@ -20,7 +24,16 @@ CREATE INDEX IF NOT EXISTS idx_sightings_location ON sightings (location);
 
 
 def connect(path: str | Path = DB_PATH) -> sqlite3.Connection:
-    """Open the database, creating the table if it does not exist yet."""
+    """Open the database, creating the table and indexes if needed.
+
+    Args:
+        path: The database file. Tests pass ":memory:" for a temporary
+            database that never touches the real `ticks.db`.
+
+    Returns:
+        An open connection whose rows can be read by column name.
+        The caller is responsible for closing it.
+    """
     # FastAPI may use a connection on a different thread from the one that
     # opened it. Each request gets its own connection, so this is safe.
     conn = sqlite3.connect(path, check_same_thread=False)
@@ -30,10 +43,25 @@ def connect(path: str | Path = DB_PATH) -> sqlite3.Connection:
 
 
 def upsert_sightings(conn: sqlite3.Connection, records: list[dict]) -> None:
-    """Insert cleaned records; if an id already exists, replace it with the new copy."""
-    # `with conn` makes this one transaction: every record is saved, or none are.
-    with conn:
+    """Save cleaned records, replacing any existing record with the same id.
+
+    "Upsert" means insert, or update if it already exists. Running ingestion
+    twice therefore never duplicates rows, and a corrected record from the
+    source replaces the old version.
+
+    Args:
+        conn: An open database connection.
+        records: Cleaned records, as returned by `clean_record`.
+
+    Side effects:
+        Writes to the database as a single transaction: if any record fails,
+        none are saved, so the table is never left half-updated.
+    """
+    with conn:  # commits on success, rolls back on any error
         conn.executemany(
+            # `:id`, `:date` etc. are placeholders filled safely from each
+            # dict, so values are never pasted into the SQL text.
+            # `excluded` means "the values we just tried to insert".
             """
             INSERT INTO sightings (id, date, location, species, latin_name)
             VALUES (:id, :date, :location, :species, :latin_name)

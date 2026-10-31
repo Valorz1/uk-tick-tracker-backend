@@ -1,4 +1,8 @@
-"""SQL queries used by the API endpoints."""
+"""SQL queries used by the API endpoints.
+
+Keeping the SQL here, away from the endpoint code, means each endpoint
+stays short and each query can be read and changed in one place.
+"""
 
 import sqlite3
 from datetime import date, timedelta
@@ -14,7 +18,23 @@ def search_sightings(
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[int, list[dict]]:
-    """Return (total matches, one page of matching sightings, newest first)."""
+    """Find sightings matching optional filters, one page at a time.
+
+    The WHERE clause is built only from the filters actually given, so
+    any combination of start, end and location works.
+
+    Args:
+        conn: An open database connection.
+        start: Earliest date to include, or None for no lower limit.
+        end: Latest date to include (the whole day), or None for no upper limit.
+        location: City name in any capitalisation, or None for all cities.
+        limit: The maximum number of sightings to return (the page size).
+        offset: How many matching sightings to skip (for later pages).
+
+    Returns:
+        A tuple of (total number of matches across all pages,
+        this page of sightings as dicts, newest first).
+    """
     conditions = []
     params = []
 
@@ -45,6 +65,8 @@ def search_sightings(
         params,
     ).fetchone()[0]
 
+    # `id` breaks ties between identical dates, so the order is always the
+    # same and paging never shows a sighting twice or skips one.
     rows = conn.execute(
         "SELECT id, date, location, species, latin_name FROM sightings"
         f"{where} ORDER BY date DESC, id LIMIT ? OFFSET ?",
@@ -55,7 +77,15 @@ def search_sightings(
 
 
 def sightings_per_region(conn: sqlite3.Connection) -> list[dict]:
-    """Return the number of sightings in each region (city), highest first."""
+    """Count sightings in each region (each city counts as a region).
+
+    Args:
+        conn: An open database connection.
+
+    Returns:
+        A list of {"region": ..., "count": ...} dicts, highest count first.
+        Ties are sorted alphabetically so the order never changes.
+    """
     rows = conn.execute(
         "SELECT location AS region, COUNT(*) AS count FROM sightings"
         " GROUP BY location ORDER BY count DESC, region"
@@ -74,10 +104,20 @@ PERIOD_SQL = {
 
 
 def sightings_over_time(conn: sqlite3.Connection, period: str) -> list[dict]:
-    """Return the number of sightings per week or month, oldest first.
+    """Count sightings per week or month.
 
-    `period` must be "weekly" or "monthly". The endpoint checks this, and the
-    SQL text below only ever comes from PERIOD_SQL, never from the user.
+    Args:
+        conn: An open database connection.
+        period: "weekly" or "monthly". The endpoint checks this, and the SQL
+            text below only ever comes from PERIOD_SQL, never from the user,
+            so it is safe from SQL injection.
+
+    Returns:
+        A list of {"period": ..., "count": ...} dicts, oldest first.
+        Periods with no sightings are not included.
+
+    Raises:
+        KeyError: If `period` is not a key of PERIOD_SQL.
     """
     period_sql = PERIOD_SQL[period]
     rows = conn.execute(

@@ -1,6 +1,9 @@
 """FastAPI app: search and report on tick sightings stored in SQLite.
 
 Run from the project root with:  uvicorn app.main:app --reload
+
+Note: FastAPI shows each endpoint's docstring on the /docs page, so those
+docstrings are written for API users. Notes for developers use # comments.
 """
 
 import sqlite3
@@ -20,7 +23,16 @@ app = FastAPI(
 
 
 def get_db():
-    """Give each request its own database connection, and close it afterwards."""
+    """Give each request its own database connection, and close it afterwards.
+
+    This is a FastAPI dependency. Code before `yield` runs before the
+    endpoint, and the `finally` block runs after the response, even if the
+    endpoint raised an error. Tests replace it with an in-memory database
+    using `app.dependency_overrides`.
+
+    Yields:
+        An open SQLite connection.
+    """
     conn = connect()
     try:
         yield conn
@@ -33,6 +45,16 @@ def get_db_with_data(conn: Annotated[sqlite3.Connection, Depends(get_db)]):
 
     Without this, every endpoint would quietly return empty results,
     which looks like "no ticks in the UK" rather than "no data loaded".
+
+    Args:
+        conn: The connection provided by `get_db`. Because this builds on
+            `get_db`, the check still runs when tests override `get_db`.
+
+    Returns:
+        The same connection, once it is known to contain data.
+
+    Raises:
+        HTTPException: 503 Service Unavailable if the table is empty.
     """
     if count_sightings(conn) == 0:
         raise HTTPException(
@@ -41,9 +63,14 @@ def get_db_with_data(conn: Annotated[sqlite3.Connection, Depends(get_db)]):
     return conn
 
 
+# A reusable type: any endpoint parameter declared as `DB` receives a
+# connection that has already passed the "data is loaded" check.
 DB = Annotated[sqlite3.Connection, Depends(get_db_with_data)]
 
 
+# FastAPI validates every parameter from its type before this function runs:
+# a bad date, or a limit/offset outside its range (ge = minimum,
+# le = maximum), is rejected with a 422 error automatically.
 @app.get("/sightings", response_model=SearchResults)
 def search(
     conn: DB,
@@ -54,6 +81,7 @@ def search(
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
     """Search sightings by date range and location, newest first."""
+    # The one rule FastAPI cannot check alone, because it involves two parameters.
     if start and end and start > end:
         raise HTTPException(status_code=422, detail="start must be on or before end")
 
@@ -67,6 +95,8 @@ def report_regions(conn: DB):
     return sightings_per_region(conn)
 
 
+# `Literal` allows only these two values: anything else gets a 422 error,
+# and /docs shows them as a dropdown.
 @app.get("/reports/trends", response_model=list[PeriodCount])
 def report_trends(
     conn: DB,

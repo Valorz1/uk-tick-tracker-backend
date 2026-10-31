@@ -1,36 +1,79 @@
-"""Check and tidy raw tick-sighting records from the Elanco API."""
+"""Check and tidy raw tick-sighting records from the Elanco API.
+
+Every record passes through `clean_record` before it is stored, so the
+database only ever contains complete, consistently formatted sightings.
+"""
 
 import string
 from datetime import datetime
 
+# Fields a sighting cannot be stored or searched without.
+# `latinName` is deliberately not here: a record missing it is still useful.
 REQUIRED_FIELDS = ("id", "date", "location", "species")
 
 
 class InvalidRecordError(ValueError):
-    """Raised when a raw record cannot be stored."""
+    """Raised when a raw record cannot be stored.
+
+    A dedicated error type lets ingestion catch bad records specifically,
+    without also hiding unrelated bugs that raise other errors.
+    """
 
 
 def _clean_text(value) -> str | None:
-    """Return the text with outer spaces removed, or None if it is missing or blank."""
+    """Trim a text value, treating anything unusable as missing.
+
+    Args:
+        value: Any value taken from a raw record.
+
+    Returns:
+        The text without surrounding spaces, or None if the value is not
+        text or is empty after trimming. Callers can therefore test for
+        "missing" with a single `is None` check.
+    """
     if not isinstance(value, str):
         return None
     value = value.strip()
-    return value or None
+    return value or None  # "" is falsy, so blank text becomes None
 
 
 def normalise_location(text: str) -> str:
-    """Tidy a city name. Used when storing AND when searching, so they always match.
+    """Tidy a city name into one consistent form.
 
-    capwords also handles apostrophes and extra spaces: " king's  lynn " -> "King's Lynn"
-    (str.title() would give "King'S Lynn").
+    Used both when storing records and when searching, so a search always
+    uses the same rule as the stored data and cannot miss on capitals or spaces.
+
+    Args:
+        text: A city name in any capitalisation, possibly with extra spaces.
+
+    Returns:
+        The name with each word capitalised and single spaces between words,
+        e.g. " king's  lynn " -> "King's Lynn". `string.capwords` is used
+        instead of `str.title()`, which would give "King'S Lynn".
     """
     return string.capwords(text)
 
 
 def clean_record(raw: dict, now: datetime | None = None) -> dict:
-    """Return a tidied copy of one raw sighting, or raise InvalidRecordError.
+    """Validate one raw sighting and return a tidied copy.
 
-    `now` is only passed in by tests, so they can fix the current time.
+    Checks run in order and stop at the first problem, so the error
+    message always names one specific reason.
+
+    Args:
+        raw: One record exactly as received from the API.
+        now: The current time to compare dates against. Only tests pass
+            this, so the "future date" check gives the same result on any day.
+
+    Returns:
+        A new dict with the keys `id`, `date`, `location`, `species` and
+        `latin_name` (snake_case, to match the database columns). `date` is
+        always in the form "YYYY-MM-DDTHH:MM:SS"; `latin_name` may be None.
+
+    Raises:
+        InvalidRecordError: If the record is not a dict, a required field is
+            missing or blank, or the date is unparseable, has a timezone or is
+            in the future.
     """
     if not isinstance(raw, dict):
         raise InvalidRecordError("record is not a JSON object")
@@ -42,6 +85,7 @@ def clean_record(raw: dict, now: datetime | None = None) -> dict:
     try:
         date = datetime.fromisoformat(raw["date"].strip())
     except ValueError:
+        # Replace Python's generic message with one that shows the bad value.
         raise InvalidRecordError(f"invalid date: {raw['date']!r}")
 
     # Source dates have no timezone. One that does is inconsistent data,
@@ -54,6 +98,7 @@ def clean_record(raw: dict, now: datetime | None = None) -> dict:
 
     return {
         "id": _clean_text(raw["id"]),
+        # One fixed format means dates sort correctly as text in SQLite.
         "date": date.isoformat(timespec="seconds"),
         "location": normalise_location(raw["location"]),
         "species": _clean_text(raw["species"]),
