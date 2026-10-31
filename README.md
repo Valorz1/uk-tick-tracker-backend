@@ -12,7 +12,7 @@ A REST API for exploring tick sightings across the UK. It takes the dataset supp
 I built this as a backend-focused project using **Python, FastAPI and SQLite**. The main aim was to handle the data properly, make it easy to query, and keep the code straightforward to test and explain.
 
 **Author:** Parmbir Singh Nandha  
-**Video walkthrough:** *Link to be added before submission*
+**Video walkthrough:** [Watch the 6½-minute walkthrough](docs/walkthrough.mp4)
 
 [Run locally](#run-locally) · [API endpoints](#api-endpoints) · [How it works](#how-it-works) · [Testing](#testing) · [What I'd improve](#what-id-improve)
 
