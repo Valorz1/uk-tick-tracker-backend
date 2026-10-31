@@ -21,8 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_sightings_location ON sightings (location);
 
 def connect(path: str | Path = DB_PATH) -> sqlite3.Connection:
     """Open the database, creating the table if it does not exist yet."""
-    # FastAPI may use a connection on a different thread from the one that.
-    
+    # FastAPI may use a connection on a different thread from the one that
     # opened it. Each request gets its own connection, so this is safe.
     conn = sqlite3.connect(path, check_same_thread=False)
     conn.row_factory = sqlite3.Row  # lets us read columns by name: row["date"]
